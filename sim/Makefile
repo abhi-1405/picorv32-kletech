@@ -2,7 +2,8 @@
 RISCV_ARCH := -march=rv32ic
 LINKER_SCRIPT := ../firmware/sections.lds
 CROSS=/opt/riscv32i/bin/riscv32-unknown-elf-
-CFLAGS= -Wl,-Bstatic,-T,$(LINKER_SCRIPT),--strip-debug -ffreestanding -DICEBREAKER -nostdlib
+CFLAGS:= -Wl,-Bstatic,-T,$(LINKER_SCRIPT),--strip-debug -ffreestanding -DICEBREAKER -nostdlib  
+CFLAGS+= -I../firmware
 
 
 RTL_FILES := ../rtl/kletech_soc.v

@@ -1,7 +1,7 @@
 
-RISCV_ARCH := -march=rv32ic
+RISCV_ARCH := -march=rv32imc
 LINKER_SCRIPT := ../firmware/sections.lds
-CROSS=/opt/riscv32i/bin/riscv32-unknown-elf-
+CROSS=/opt/riscv32imc/bin/riscv32-unknown-elf-
 CFLAGS:= -Wl,-Bstatic,-T,$(LINKER_SCRIPT),--strip-debug -ffreestanding -DICEBREAKER -nostdlib  
 CFLAGS+= -I../firmware
 

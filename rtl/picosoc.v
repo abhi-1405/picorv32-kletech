@@ -100,14 +100,16 @@ module picosoc (
 	wire [31:0] mem_wdata;
 	wire [3:0] mem_wstrb;
 	wire [31:0] mem_rdata;
-
+        
+	wire spimem_valid;
 	wire spimem_ready;
 	wire [31:0] spimem_rdata;
-
+	
+        wire ram_valid;
 	reg ram_ready;
 	wire [31:0] ram_rdata;
 
-	assign iomem_valid = mem_valid && (mem_addr[31:24] > 8'h 01);
+	//assign iomem_valid = mem_valid && (mem_addr[31:24] > 8'h 01);
 	assign iomem_wstrb = mem_wstrb;
 	assign iomem_addr = mem_addr;
 	assign iomem_wdata = mem_wdata;
@@ -115,10 +117,10 @@ module picosoc (
 	wire spimemio_cfgreg_sel = mem_valid && (mem_addr == 32'h 0200_0000);
 	wire [31:0] spimemio_cfgreg_do;
 
-	wire        simpleuart_reg_div_sel = mem_valid && (mem_addr == 32'h 0200_0004);
+	wire        simpleuart_reg_div_sel;// = mem_valid && (mem_addr == 32'h 0200_0004);
 	wire [31:0] simpleuart_reg_div_do;
 
-	wire        simpleuart_reg_dat_sel = mem_valid && (mem_addr == 32'h 0200_0008);
+	wire        simpleuart_reg_dat_sel;// = mem_valid && (mem_addr == 32'h 0200_0008);
 	wire [31:0] simpleuart_reg_dat_do;
 	wire        simpleuart_reg_dat_wait;
 
@@ -152,11 +154,34 @@ module picosoc (
 		.mem_rdata   (mem_rdata  ),
 		.irq         (irq        )
 	);
+	
+	address_decoder #(. WORDS (MEM_WORDS))
+	decoder(
+
+		.mem_d_valid(mem_valid),
+		.mem_d_addr (mem_addr),
+		.spi_data(spimem_rdata),
+		.uart_div_data(simpleuart_reg_div_do),
+		.uart_sendrec_data(simpleuart_reg_dat_do),
+		.sram_data( ram_rdata),
+		.sram ready(ram_ready),
+		.spi_ready (spimem_ready),
+		.uart_ready_clkdiv(simpleuart_reg_div_sel),
+		.uart_ready_sendrec(simpleuart_reg_dat_sel && !mem_wstrb),
+		.mem_d_ready (mem_ready), //uncomment this
+		.mem_d_rdata (mem_rdata), // uncomment this/////
+		.spi_valid( spimem_valid), 
+		.sram_valid(ram_valid),
+		.uart_valid_clkdiv(simpleuart_reg_div_sel),
+		.uart_valid_sendrec (simpleuart_reg_dat_sel),
+		.gpio_valid(iomem_valid)
+);
+	
 
 	spimemio spimemio (
 		.clk    (clk),
 		.resetn (resetn),
-		.valid  (mem_valid && mem_addr >= 4*MEM_WORDS && mem_addr < 32'h 0200_0000),
+		.valid  (spimem_valid),
 		.ready  (spimem_ready),
 		.addr   (mem_addr[23:0]),
 		.rdata  (spimem_rdata),
@@ -209,7 +234,8 @@ module picosoc (
 		.WORDS(MEM_WORDS)
 	) memory (
 		.clk(clk),
-		.wen((mem_valid && !mem_ready && mem_addr < 4*MEM_WORDS) ? mem_wstrb : 4'b0),
+		.wen((ram_valid && !mem_ready) ? mem_wstrb : 4'b0),
+		//.wen((mem_valid && !mem_ready && mem_addr < 4*MEM_WORDS) ? mem_wstrb : 4'b0),
 		.addr(mem_addr[23:2]),
 		.wdata(mem_wdata),
 		.rdata(ram_rdata)
@@ -257,3 +283,40 @@ module picosoc_mem #(
 	end
 endmodule
 
+module address_decoder #(
+
+parameter integer WORDS = 256)
+	(
+		input mem_d_valid,
+		input [31:0] mem_d_addr, 
+		input [31:0] spi_data,
+		input [31:0] uart_div_data,
+		input [31:0] uart_sendrec_data,
+		input [31:0] sram_data,
+		input sram ready,
+		input spi_ready, 
+		input uart_ready_clkdiv,
+		input uart_ready_sendrec,
+
+//input mem_d_readyi, // uncomment this
+
+//input [31:0] mem_d_rdatal,
+		output sram valid,
+		output mem d_ready, // uncomment this 
+		output [31:0] mem_d_rdata, //uncomment this
+		output spi_valid,
+		output uart_valid_clkdiv,
+		output uart_valid_sendrec,
+		output gpio_valid,
+
+	);
+	
+	assign sram_valid = mem_d_valid && (mem_d_addr < 4*WORDS);
+	assign spi_valid = mem_d_valid && (mem_d_addr >= 4*WORDS && mem_d_addr < 32'h0200 0000);
+
+	assign uart_valid_clkdiv = mem_d_valid && (mem_d_addr 32'h0200 0004);
+	assign uart_valid_sendrec = mem_d_valid && (mem_d_addr == 32 h0200 0008);
+
+	assign gpio_valid = mem_d_valid && (mem_d_addr[31:24] >= 8'h03);
+	
+endmodule
